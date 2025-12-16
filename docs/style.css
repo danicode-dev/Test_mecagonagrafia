@@ -71,9 +71,13 @@ body {
   display: flex;
   gap: 12px;
   align-items: end;
-  justify-content: space-between;
+  justify-content: flex-start;
   flex-wrap: wrap;
   margin-bottom: 14px;
+}
+
+.controles > .boton {
+  margin-left: auto;
 }
 
 .control {
@@ -99,6 +103,11 @@ body {
 .control-select:focus-visible {
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
   border-color: rgba(96, 165, 250, 0.45);
+}
+
+.control-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .boton {
@@ -199,7 +208,7 @@ body {
 .estadisticas {
   margin-top: 14px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
 }
 
@@ -229,6 +238,105 @@ body {
   margin-top: 14px;
 }
 
+.panel {
+  margin-top: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 40%), var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 16px;
+}
+
+.panel-encabezado {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.panel-titulo {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.2px;
+}
+
+.panel-subtitulo {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.panel-vacio {
+  margin: 10px 2px 0;
+  color: rgba(232, 238, 252, 0.7);
+}
+
+.tabla-contenedor {
+  background: var(--tarjeta-2);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla th,
+.tabla td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+}
+
+.tabla th {
+  text-align: left;
+  color: rgba(232, 238, 252, 0.78);
+  font-size: 0.85rem;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+}
+
+.tabla td {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  color: rgba(232, 238, 252, 0.9);
+}
+
+.tabla tbody tr:hover {
+  background: rgba(96, 165, 250, 0.07);
+}
+
+.tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.historial {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.historial-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.historial-principal {
+  font-family: var(--mono);
+  font-size: 0.98rem;
+}
+
+.historial-secundario {
+  margin-top: 6px;
+  color: rgba(232, 238, 252, 0.68);
+  font-size: 0.85rem;
+}
+
 @media (max-width: 640px) {
   body {
     padding: 16px;
@@ -245,5 +353,9 @@ body {
 
   .estadisticas {
     grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: 14px;
   }
 }

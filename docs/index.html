@@ -18,6 +18,23 @@
       <section class="tarjeta" aria-label="Área del test de mecanografía">
         <div class="controles">
           <div class="control">
+            <label for="modo" class="control-etiqueta">Modo</label>
+            <select id="modo" class="control-select">
+              <option value="timed" selected>Contrarreloj</option>
+              <option value="race">Carrera</option>
+            </select>
+          </div>
+
+          <div class="control">
+            <label for="nivel" class="control-etiqueta">Nivel</label>
+            <select id="nivel" class="control-select">
+              <option value="L1" selected>L1</option>
+              <option value="L2">L2</option>
+              <option value="L3">L3</option>
+            </select>
+          </div>
+
+          <div class="control">
             <label for="duracion" class="control-etiqueta">Duración del test</label>
             <select id="duracion" class="control-select">
               <option value="15">15 s</option>
@@ -56,6 +73,10 @@
             <div class="stat-etiqueta">Tiempo restante</div>
             <div id="statTiempo" class="stat-valor">60 s</div>
           </div>
+          <div class="stat" aria-label="Tiempo empleado">
+            <div class="stat-etiqueta">Tiempo empleado</div>
+            <div id="statTiempoEmpleado" class="stat-valor">0.0 s</div>
+          </div>
           <div class="stat" aria-label="Velocidad">
             <div class="stat-etiqueta">Velocidad</div>
             <div id="statWpm" class="stat-valor">0 WPM</div>
@@ -69,6 +90,36 @@
             <div id="statErrores" class="stat-valor">0</div>
           </div>
         </section>
+      </section>
+
+      <section class="panel" aria-label="Mejores puntuaciones">
+        <header class="panel-encabezado">
+          <h2 class="panel-titulo">Mejores puntuaciones</h2>
+          <p id="leaderboardContexto" class="panel-subtitulo"></p>
+        </header>
+
+        <div class="tabla-contenedor" role="region" aria-label="Tabla de mejores puntuaciones">
+          <table class="tabla" aria-describedby="leaderboardContexto">
+            <thead>
+              <tr id="leaderboardHead"></tr>
+            </thead>
+            <tbody id="leaderboardBody"></tbody>
+          </table>
+        </div>
+
+        <p id="leaderboardVacio" class="panel-vacio" hidden>
+          Aún no hay resultados guardados para esta configuración.
+        </p>
+      </section>
+
+      <section class="panel" aria-label="Historial reciente">
+        <header class="panel-encabezado">
+          <h2 class="panel-titulo">Historial reciente</h2>
+          <p class="panel-subtitulo">Últimas partidas guardadas en este navegador.</p>
+        </header>
+
+        <ul id="historialLista" class="historial"></ul>
+        <p id="historialVacio" class="panel-vacio" hidden>Aún no hay partidas guardadas.</p>
       </section>
 
       <noscript class="noscript">Necesitas activar JavaScript para usar este test.</noscript>

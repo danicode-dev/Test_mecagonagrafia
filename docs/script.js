@@ -1,133 +1,337 @@
 "use strict";
 
-// Textos en español para el test (temas: tecnología, deporte, programación y DAW).
-const TEXTOS = [
-  "En DAW aprendemos a construir aplicaciones web con HTML, CSS y JavaScript, cuidando la accesibilidad y el rendimiento.",
-  "Una buena API REST define rutas claras, valida los datos de entrada y devuelve códigos de estado coherentes.",
-  "El fútbol se decide en detalles: una presión alta, una buena transición y un pase preciso pueden cambiar el partido.",
-  "Programar es resolver problemas: dividir en partes pequeñas, probar a menudo y mejorar el código con calma.",
-  "Si optimizas una web, empieza por medir: reduce imágenes, evita renderizados innecesarios y usa caché cuando tenga sentido.",
-  "En un equipo de desarrollo, comunicar bien los cambios y revisar pull requests evita errores y ahorra tiempo.",
-  "La base de datos debe estar normalizada, pero también diseñada pensando en consultas reales y en índices adecuados.",
-  "En el gimnasio, la constancia gana: técnica correcta, progresión gradual y descanso suficiente para recuperarse.",
-  "Una interfaz minimalista prioriza la lectura: buen contraste, tipografía clara y espacios bien definidos.",
-  "Cuando depuras un bug, reproduce el problema, aísla la causa y verifica el arreglo con un caso sencillo.",
-];
+const TEXT_POOLS = {
+  L1: [
+    "Practicar un poco cada dia mejora la mecanografia.",
+    "Escribe con calma y mantén el ritmo sin mirar el teclado.",
+    "Respira, relaja los hombros y deja que los dedos fluyan.",
+    "La precision importa mas que la velocidad al principio.",
+    "Un buen habito es corregir errores y seguir adelante.",
+    "Repite frases cortas hasta ganar confianza y control.",
+    "Teclas suaves, manos quietas y mirada en la pantalla.",
+    "Constancia y paciencia: el progreso llega con el tiempo.",
+  ],
+  L2: [
+    "En DAW aprendemos a construir aplicaciones web con HTML, CSS y JavaScript, cuidando la accesibilidad y el rendimiento.",
+    "Una buena API REST define rutas claras, valida los datos de entrada y devuelve codigos de estado coherentes.",
+    "Programar es resolver problemas: dividir en partes pequeñas, probar a menudo y mejorar el codigo con calma.",
+    "Si optimizas una web, empieza por medir: reduce imagenes, evita renderizados innecesarios y usa cache cuando tenga sentido.",
+    "En un equipo de desarrollo, comunicar bien los cambios y revisar pull requests evita errores y ahorra tiempo.",
+    "Cuando depuras un bug, reproduce el problema, aisla la causa y verifica el arreglo con un caso sencillo.",
+    "Una interfaz minimalista prioriza la lectura: buen contraste, tipografia clara y espacios bien definidos.",
+    "La base de datos debe estar normalizada, pero tambien diseñada pensando en consultas reales y en indices adecuados.",
+  ],
+  L3: [
+    "En 2025, la app v1.4.2 responde en 180ms; si ves 500/504, revisa logs, timeouts y el cache (CDN + proxy).",
+    "Atajo rapido: Ctrl+S, Ctrl+Z y Alt+Tab; mantén foco, evita distracciones, y escribe con precision al 99%.",
+    "Config: { env: 'prod', retry: 3, backoffMs: 250, featureFlag: true } -> valida tipos, limites y errores.",
+    "Regex basica: ^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$  (ojo: casos borde, unicode y escapes).",
+    "HTTP: GET /api/items?page=2&limit=25 -> 200 OK; si falla, 401/403/404; mide con TTFB y evita N+1.",
+    "Math: (12.5 * 3) / 7 = 5.357...; usa , . : ; ! ? y simbolos como # @ $ % & * sin perder ritmo.",
+    "Build: npm run build && npm run test; si hay warning, corrige lint, ordena imports y reduce deuda tecnica.",
+    "Git: git checkout -b feat/x; commit -m 'fix'; push origin; abre PR, revisa CI, y mergea cuando este OK.",
+  ],
+};
 
-const elementos = {
+const STORAGE_KEYS = {
+  leaderboards: "typingTest:leaderboards:v1",
+  history: "typingTest:history:v1",
+};
+
+const MAX_LEADERBOARD_ENTRIES = 10;
+const MAX_HISTORY_ENTRIES = 10;
+const VISIBLE_HISTORY_ENTRIES = 5;
+
+const elements = {
   texto: document.getElementById("textoObjetivo"),
   entrada: document.getElementById("entradaUsuario"),
+  modo: document.getElementById("modo"),
+  nivel: document.getElementById("nivel"),
   duracion: document.getElementById("duracion"),
   botonNuevo: document.getElementById("nuevoTest"),
   mensaje: document.getElementById("mensaje"),
   statTiempo: document.getElementById("statTiempo"),
+  statTiempoEmpleado: document.getElementById("statTiempoEmpleado"),
   statWpm: document.getElementById("statWpm"),
   statPrecision: document.getElementById("statPrecision"),
   statErrores: document.getElementById("statErrores"),
+  leaderboardContexto: document.getElementById("leaderboardContexto"),
+  leaderboardHead: document.getElementById("leaderboardHead"),
+  leaderboardBody: document.getElementById("leaderboardBody"),
+  leaderboardVacio: document.getElementById("leaderboardVacio"),
+  historialLista: document.getElementById("historialLista"),
+  historialVacio: document.getElementById("historialVacio"),
 };
 
-let textoActual = "";
-let duracionTotal = 60;
-let inicioMs = null;
-let intervaloId = null;
-let enMarcha = false;
-let finalizado = false;
-let spans = [];
+const state = {
+  mode: "timed",
+  level: "L1",
+  durationSec: 60,
+  targetText: "",
+  spans: [],
+  startPerfMs: null,
+  startedAtEpochMs: null,
+  timerId: null,
+  running: false,
+  finished: false,
+  finalElapsedMs: 0,
+};
 
-function elegirTextoAleatorio() {
-  const indice = Math.floor(Math.random() * TEXTOS.length);
-  return TEXTOS[indice];
+function nowPerfMs() {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
+  }
+  return Date.now();
 }
 
-function renderizarTexto(texto) {
-  elementos.texto.innerHTML = "";
-  spans = [];
+function clampMin0(number) {
+  return Number.isFinite(number) ? Math.max(0, number) : 0;
+}
 
-  const fragmento = document.createDocumentFragment();
-  for (const caracter of texto) {
+function formatInteger(number) {
+  return String(Math.round(clampMin0(number)));
+}
+
+function formatElapsedMs(milliseconds) {
+  const safeMs = clampMin0(milliseconds);
+  const totalSeconds = safeMs / 1000;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds - minutes * 60;
+
+  if (minutes <= 0) {
+    return `${seconds.toFixed(1)} s`;
+  }
+
+  const paddedSeconds = seconds.toFixed(1).padStart(4, "0");
+  return `${minutes}:${paddedSeconds}`;
+}
+
+function safeJsonParse(text, fallback) {
+  if (typeof text !== "string" || text.trim() === "") return fallback;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return fallback;
+  }
+}
+
+function readStorageJson(key, fallback) {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return safeJsonParse(raw, fallback);
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStorageJson(key, value) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getLeaderboardKey(mode, durationSec, level) {
+  if (mode === "race") return `race|${level}`;
+  return `timed|${durationSec}|${level}`;
+}
+
+function compareTimedResults(a, b) {
+  if (b.wpm !== a.wpm) return b.wpm - a.wpm;
+  if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+  if (a.errors !== b.errors) return a.errors - b.errors;
+  return (b.finishedAtEpochMs ?? 0) - (a.finishedAtEpochMs ?? 0);
+}
+
+function compareRaceResults(a, b) {
+  if (a.timeMs !== b.timeMs) return a.timeMs - b.timeMs;
+  if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+  if (a.errors !== b.errors) return a.errors - b.errors;
+  return (b.finishedAtEpochMs ?? 0) - (a.finishedAtEpochMs ?? 0);
+}
+
+function persistResult(result) {
+  const key = getLeaderboardKey(result.mode, result.durationSec, result.level);
+
+  const leaderboards = readStorageJson(STORAGE_KEYS.leaderboards, {});
+  const current = Array.isArray(leaderboards[key]) ? leaderboards[key] : [];
+  current.push(result);
+  current.sort(result.mode === "race" ? compareRaceResults : compareTimedResults);
+  leaderboards[key] = current.slice(0, MAX_LEADERBOARD_ENTRIES);
+  writeStorageJson(STORAGE_KEYS.leaderboards, leaderboards);
+
+  const history = readStorageJson(STORAGE_KEYS.history, []);
+  const nextHistory = Array.isArray(history) ? history : [];
+  nextHistory.unshift(result);
+  writeStorageJson(STORAGE_KEYS.history, nextHistory.slice(0, MAX_HISTORY_ENTRIES));
+}
+
+function formatDateTime(epochMs) {
+  const date = new Date(epochMs);
+  try {
+    return date.toLocaleString(undefined, {
+      year: "2-digit",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return date.toLocaleString();
+  }
+}
+
+function renderLeaderboard() {
+  if (!elements.leaderboardHead || !elements.leaderboardBody || !elements.leaderboardContexto) return;
+
+  const key = getLeaderboardKey(state.mode, state.durationSec, state.level);
+  const leaderboards = readStorageJson(STORAGE_KEYS.leaderboards, {});
+  const entries = Array.isArray(leaderboards[key]) ? leaderboards[key] : [];
+
+  const modeLabel = state.mode === "race" ? "Carrera" : "Contrarreloj";
+  const durationLabel = state.mode === "timed" ? ` · ${state.durationSec} s` : "";
+  elements.leaderboardContexto.textContent = `Top ${MAX_LEADERBOARD_ENTRIES} · ${modeLabel}${durationLabel} · ${state.level}`;
+
+  const headers =
+    state.mode === "race"
+      ? ["#", "Tiempo", "Precisión", "Errores", "Fecha"]
+      : ["#", "WPM", "Precisión", "Errores", "Fecha"];
+
+  elements.leaderboardHead.innerHTML = "";
+  for (const header of headers) {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = header;
+    elements.leaderboardHead.appendChild(th);
+  }
+
+  elements.leaderboardBody.innerHTML = "";
+  if (elements.leaderboardVacio) elements.leaderboardVacio.hidden = entries.length > 0;
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const tr = document.createElement("tr");
+
+    const cells =
+      state.mode === "race"
+        ? [
+            String(i + 1),
+            formatElapsedMs(entry.timeMs),
+            `${formatInteger(entry.accuracy)} %`,
+            String(entry.errors),
+            formatDateTime(entry.finishedAtEpochMs),
+          ]
+        : [
+            String(i + 1),
+            `${formatInteger(entry.wpm)}`,
+            `${formatInteger(entry.accuracy)} %`,
+            String(entry.errors),
+            formatDateTime(entry.finishedAtEpochMs),
+          ];
+
+    for (const value of cells) {
+      const td = document.createElement("td");
+      td.textContent = value;
+      tr.appendChild(td);
+    }
+
+    elements.leaderboardBody.appendChild(tr);
+  }
+}
+
+function renderHistory() {
+  if (!elements.historialLista) return;
+
+  const history = readStorageJson(STORAGE_KEYS.history, []);
+  const entries = Array.isArray(history) ? history.slice(0, VISIBLE_HISTORY_ENTRIES) : [];
+
+  elements.historialLista.innerHTML = "";
+  if (elements.historialVacio) elements.historialVacio.hidden = entries.length > 0;
+
+  for (const entry of entries) {
+    const li = document.createElement("li");
+    li.className = "historial-item";
+
+    const modeLabel = entry.mode === "race" ? "Carrera" : `Contrarreloj ${entry.durationSec} s`;
+    const metric = entry.mode === "race" ? formatElapsedMs(entry.timeMs) : `${formatInteger(entry.wpm)} WPM`;
+
+    const primary = document.createElement("div");
+    primary.className = "historial-principal";
+    primary.textContent = `${modeLabel} · ${entry.level} · ${metric}`;
+
+    const secondary = document.createElement("div");
+    secondary.className = "historial-secundario";
+    secondary.textContent = `${formatInteger(entry.accuracy)} % · ${entry.errors} errores · ${formatDateTime(entry.finishedAtEpochMs)}`;
+
+    li.appendChild(primary);
+    li.appendChild(secondary);
+    elements.historialLista.appendChild(li);
+  }
+}
+
+function getRemainingMs(elapsedMs) {
+  if (state.mode !== "timed") return null;
+  const totalMs = clampMin0(state.durationSec) * 1000;
+  return Math.max(0, totalMs - clampMin0(elapsedMs));
+}
+
+function chooseRandomText(level) {
+  const pool = TEXT_POOLS[level] ?? TEXT_POOLS.L1;
+  const index = Math.floor(Math.random() * pool.length);
+  return pool[index];
+}
+
+function renderTargetText(text) {
+  elements.texto.innerHTML = "";
+  state.spans = [];
+
+  const fragment = document.createDocumentFragment();
+  for (const character of text) {
     const span = document.createElement("span");
     span.className = "char";
-    span.textContent = caracter;
-    spans.push(span);
-    fragmento.appendChild(span);
+    span.textContent = character;
+    state.spans.push(span);
+    fragment.appendChild(span);
   }
-  elementos.texto.appendChild(fragmento);
+
+  elements.texto.appendChild(fragment);
 }
 
-function calcularConteos(entrada) {
-  let correctos = 0;
-  let incorrectos = 0;
+function calculateCounts(input) {
+  let correct = 0;
+  let errors = 0;
 
-  for (let i = 0; i < entrada.length; i++) {
-    if (i < textoActual.length && entrada[i] === textoActual[i]) {
-      correctos++;
+  for (let i = 0; i < input.length; i++) {
+    if (i < state.targetText.length && input[i] === state.targetText[i]) {
+      correct++;
     } else {
-      incorrectos++;
+      errors++;
     }
   }
 
-  return { total: entrada.length, correctos, incorrectos };
+  return { totalTyped: input.length, correct, errors };
 }
 
-function actualizarResaltado(entrada) {
-  for (let i = 0; i < spans.length; i++) {
-    const span = spans[i];
+function updateHighlight(input) {
+  for (let i = 0; i < state.spans.length; i++) {
+    const span = state.spans[i];
     span.classList.remove("correcto", "incorrecto", "actual");
 
-    if (i < entrada.length) {
-      if (entrada[i] === textoActual[i]) {
-        span.classList.add("correcto");
-      } else {
-        span.classList.add("incorrecto");
-      }
+    if (i < input.length) {
+      span.classList.add(input[i] === state.targetText[i] ? "correcto" : "incorrecto");
       continue;
     }
 
-    if (!finalizado && i === entrada.length) {
+    if (!state.finished && i === input.length) {
       span.classList.add("actual");
     }
   }
 }
 
-function segundosTranscurridos() {
-  if (!inicioMs) return 0;
-  return Math.floor((Date.now() - inicioMs) / 1000);
-}
-
-function tiempoRestante() {
-  const transcurridos = segundosTranscurridos();
-  return Math.max(0, duracionTotal - transcurridos);
-}
-
-function formatearEntero(valor) {
-  return String(Math.max(0, Math.round(valor)));
-}
-
-function actualizarEstadisticas() {
-  const entrada = elementos.entrada.value;
-  const { total, correctos, incorrectos } = calcularConteos(entrada);
-
-  const transcurridos = enMarcha ? segundosTranscurridos() : 0;
-  const restante = finalizado ? 0 : Math.max(0, duracionTotal - transcurridos);
-
-  elementos.statTiempo.textContent = `${restante} s`;
-
-  const minutos = transcurridos / 60;
-  const wpm = minutos > 0 ? (correctos / 5) / minutos : 0;
-  elementos.statWpm.textContent = `${formatearEntero(wpm)} WPM`;
-
-  const precision = total > 0 ? (correctos / total) * 100 : 0;
-  elementos.statPrecision.textContent = `${formatearEntero(precision)} %`;
-
-  elementos.statErrores.textContent = String(incorrectos);
-
-  if (enMarcha && restante === 0) {
-    finalizarTest();
-  }
-}
-
-function esTeclaIgnorable(evento) {
-  const ignorables = new Set([
+function isIgnorableKey(event) {
+  const ignorable = new Set([
     "Shift",
     "Control",
     "Alt",
@@ -144,127 +348,250 @@ function esTeclaIgnorable(evento) {
     "PageUp",
     "PageDown",
   ]);
-  return ignorables.has(evento.key);
+  return ignorable.has(event.key);
 }
 
-function mantenerCursorAlFinal() {
-  const pos = elementos.entrada.value.length;
-  elementos.entrada.setSelectionRange(pos, pos);
+function keepCursorAtEnd() {
+  const pos = elements.entrada.value.length;
+  elements.entrada.setSelectionRange(pos, pos);
 }
 
-function iniciarTemporizador() {
-  if (enMarcha || finalizado) return;
-
-  enMarcha = true;
-  inicioMs = Date.now();
-  elementos.mensaje.textContent = "";
-
-  intervaloId = window.setInterval(() => {
-    if (finalizado) return;
-    actualizarEstadisticas();
-  }, 120);
+function getElapsedMs() {
+  if (state.finished) return clampMin0(state.finalElapsedMs);
+  if (!state.running || state.startPerfMs === null) return 0;
+  return clampMin0(nowPerfMs() - state.startPerfMs);
 }
 
-function finalizarTest() {
-  if (finalizado) return;
+function setModeUi() {
+  const isTimed = state.mode === "timed";
+  elements.duracion.disabled = !isTimed;
 
-  finalizado = true;
-  enMarcha = false;
+  const remainingContainer = elements.statTiempo?.closest(".stat");
+  if (remainingContainer) {
+    remainingContainer.hidden = !isTimed;
+  }
+}
 
-  if (intervaloId !== null) {
-    window.clearInterval(intervaloId);
-    intervaloId = null;
+function updateStats() {
+  const input = elements.entrada.value;
+  const { totalTyped, correct, errors } = calculateCounts(input);
+
+  const elapsedMs = getElapsedMs();
+  const elapsedMinutes = elapsedMs / 60000;
+  const wpm = elapsedMinutes > 0 ? (correct / 5) / elapsedMinutes : 0;
+  const accuracy = totalTyped > 0 ? (correct / totalTyped) * 100 : 0;
+
+  const remainingMs = getRemainingMs(elapsedMs);
+  if (state.mode === "timed" && remainingMs !== null) {
+    const remainingSeconds = Math.ceil(remainingMs / 1000);
+    elements.statTiempo.textContent = `${remainingSeconds} s`;
   }
 
-  elementos.entrada.disabled = true;
-
-  const entrada = elementos.entrada.value;
-  const { total, correctos, incorrectos } = calcularConteos(entrada);
-
-  const minutos = duracionTotal / 60;
-  const wpmFinal = minutos > 0 ? (correctos / 5) / minutos : 0;
-  const precisionFinal = total > 0 ? (correctos / total) * 100 : 0;
-
-  elementos.statTiempo.textContent = "0 s";
-  elementos.statWpm.textContent = `${formatearEntero(wpmFinal)} WPM`;
-  elementos.statPrecision.textContent = `${formatearEntero(precisionFinal)} %`;
-  elementos.statErrores.textContent = String(incorrectos);
-
-  actualizarResaltado(entrada);
-
-  elementos.mensaje.textContent =
-    `Tiempo finalizado. Resultado del test: ${formatearEntero(wpmFinal)} WPM, ` +
-    `${formatearEntero(precisionFinal)} % de precisión, ${incorrectos} errores.`;
+  elements.statTiempoEmpleado.textContent = formatElapsedMs(elapsedMs);
+  elements.statWpm.textContent = `${formatInteger(wpm)} WPM`;
+  elements.statPrecision.textContent = `${formatInteger(accuracy)} %`;
+  elements.statErrores.textContent = String(errors);
 }
 
-function nuevoTest() {
-  if (intervaloId !== null) {
-    window.clearInterval(intervaloId);
-    intervaloId = null;
+function startRun() {
+  if (state.running || state.finished) return;
+
+  state.running = true;
+  state.startPerfMs = nowPerfMs();
+  state.startedAtEpochMs = Date.now();
+  elements.mensaje.textContent = "";
+
+  state.timerId = window.setInterval(() => {
+    if (!state.running || state.finished) return;
+
+    if (state.mode === "timed") {
+      const elapsedMs = getElapsedMs();
+      const remainingMs = getRemainingMs(elapsedMs);
+      if (remainingMs !== null && remainingMs <= 0) {
+        finishRun("timeout");
+        return;
+      }
+    }
+
+    updateStats();
+  }, 100);
+}
+
+function buildResult(finalElapsedMs) {
+  const input = elements.entrada.value;
+  const { totalTyped, correct, errors } = calculateCounts(input);
+
+  const elapsedMinutes = finalElapsedMs / 60000;
+  const wpm = elapsedMinutes > 0 ? (correct / 5) / elapsedMinutes : 0;
+  const accuracy = totalTyped > 0 ? (correct / totalTyped) * 100 : 0;
+
+  return {
+    mode: state.mode,
+    level: state.level,
+    durationSec: state.mode === "timed" ? state.durationSec : null,
+    timeMs: Math.round(finalElapsedMs),
+    wpm,
+    accuracy,
+    errors,
+    finishedAtEpochMs: Date.now(),
+  };
+}
+
+function finishRun(reason) {
+  if (state.finished) return;
+
+  state.finished = true;
+  state.running = false;
+
+  if (state.timerId !== null) {
+    window.clearInterval(state.timerId);
+    state.timerId = null;
   }
 
-  enMarcha = false;
-  finalizado = false;
-  inicioMs = null;
+  const finalElapsedMs =
+    state.mode === "timed" ? clampMin0(state.durationSec) * 1000 : clampMin0(getElapsedMs());
+  state.finalElapsedMs = finalElapsedMs;
 
-  const duracionElegida = Number.parseInt(elementos.duracion.value, 10);
-  duracionTotal = Number.isFinite(duracionElegida) ? duracionElegida : 60;
+  elements.entrada.disabled = true;
+  updateHighlight(elements.entrada.value);
 
-  textoActual = elegirTextoAleatorio();
-  renderizarTexto(textoActual);
+  updateStats();
 
-  elementos.entrada.disabled = false;
-  elementos.entrada.value = "";
-  elementos.mensaje.textContent = "";
+  const result = buildResult(finalElapsedMs);
+  const wpmText = `${formatInteger(result.wpm)} WPM`;
+  const accuracyText = `${formatInteger(result.accuracy)} %`;
+  const errorsText = `${result.errors} errores`;
+  const timeText = formatElapsedMs(result.timeMs);
 
-  actualizarResaltado("");
+  if (state.mode === "race") {
+    elements.mensaje.textContent =
+      `Carrera finalizada en ${timeText}. Resultado: ${wpmText}, ${accuracyText} de precision, ${errorsText}.`;
+  } else {
+    elements.mensaje.textContent =
+      `Tiempo finalizado. Resultado: ${wpmText}, ${accuracyText} de precision, ${errorsText}.`;
+  }
 
-  elementos.statTiempo.textContent = `${duracionTotal} s`;
-  elementos.statWpm.textContent = "0 WPM";
-  elementos.statPrecision.textContent = "0 %";
-  elementos.statErrores.textContent = "0";
+  persistResult(result);
+  renderLeaderboard();
+  renderHistory();
+  void reason;
+}
+
+function resetRunState() {
+  if (state.timerId !== null) {
+    window.clearInterval(state.timerId);
+    state.timerId = null;
+  }
+
+  state.running = false;
+  state.finished = false;
+  state.startPerfMs = null;
+  state.startedAtEpochMs = null;
+  state.finalElapsedMs = 0;
+}
+
+function applyConfigFromControls() {
+  const selectedMode = elements.modo.value;
+  state.mode = selectedMode === "race" ? "race" : "timed";
+
+  const selectedLevel = elements.nivel.value;
+  state.level = selectedLevel === "L2" || selectedLevel === "L3" ? selectedLevel : "L1";
+
+  const durationValue = Number.parseInt(elements.duracion.value, 10);
+  state.durationSec = Number.isFinite(durationValue) ? durationValue : 60;
+
+  setModeUi();
+}
+
+function newTest() {
+  resetRunState();
+  applyConfigFromControls();
+
+  state.targetText = chooseRandomText(state.level);
+  renderTargetText(state.targetText);
+
+  elements.entrada.disabled = false;
+  elements.entrada.value = "";
+  elements.mensaje.textContent = "";
+
+  updateHighlight("");
+
+  if (state.mode === "timed") {
+    elements.statTiempo.textContent = `${state.durationSec} s`;
+  }
+
+  elements.statTiempoEmpleado.textContent = "0.0 s";
+  elements.statWpm.textContent = "0 WPM";
+  elements.statPrecision.textContent = "0 %";
+  elements.statErrores.textContent = "0";
+
+  renderLeaderboard();
+  renderHistory();
 
   window.setTimeout(() => {
-    elementos.entrada.focus({ preventScroll: true });
+    elements.entrada.focus({ preventScroll: true });
   }, 0);
 }
 
-function configurarEventos() {
-  elementos.botonNuevo.addEventListener("click", () => {
-    nuevoTest();
+function configureEvents() {
+  elements.botonNuevo.addEventListener("click", () => {
+    newTest();
   });
 
-  elementos.entrada.addEventListener("keydown", (evento) => {
-    if (finalizado) return;
+  elements.modo.addEventListener("change", () => {
+    newTest();
+  });
 
-    if (evento.key === "Enter") {
-      evento.preventDefault();
+  elements.nivel.addEventListener("change", () => {
+    newTest();
+  });
+
+  elements.duracion.addEventListener("change", () => {
+    newTest();
+  });
+
+  elements.entrada.addEventListener("keydown", (event) => {
+    if (state.finished) return;
+
+    if (event.key === "Enter") {
+      event.preventDefault();
       return;
     }
 
-    if (!enMarcha && !esTeclaIgnorable(evento)) {
-      iniciarTemporizador();
+    if (!state.running && !isIgnorableKey(event)) {
+      startRun();
     }
 
-    const bloqueadas = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"]);
-    if (bloqueadas.has(evento.key)) {
-      evento.preventDefault();
-      mantenerCursorAlFinal();
+    const blocked = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"]);
+    if (blocked.has(event.key)) {
+      event.preventDefault();
+      keepCursorAtEnd();
     }
   });
 
-  elementos.entrada.addEventListener("input", () => {
-    if (finalizado) return;
-    mantenerCursorAlFinal();
-    actualizarResaltado(elementos.entrada.value);
-    actualizarEstadisticas();
+  elements.entrada.addEventListener("input", () => {
+    if (state.finished) return;
+
+    keepCursorAtEnd();
+    updateHighlight(elements.entrada.value);
+
+    if (!state.running && elements.entrada.value.length > 0) {
+      startRun();
+    }
+
+    updateStats();
+
+    if (state.mode === "race" && state.running) {
+      if (elements.entrada.value.length >= state.targetText.length) {
+        finishRun("completed");
+      }
+    }
   });
 
-  elementos.entrada.addEventListener("click", () => {
-    mantenerCursorAlFinal();
+  elements.entrada.addEventListener("click", () => {
+    keepCursorAtEnd();
   });
 }
 
-configurarEventos();
-nuevoTest();
-
+configureEvents();
+newTest();

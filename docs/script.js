@@ -22,14 +22,14 @@ const TEXT_POOLS = {
     "La base de datos debe estar normalizada, pero tambien diseñada pensando en consultas reales y en indices adecuados.",
   ],
   L3: [
-    "En 2025, la app v1.4.2 responde en 180ms; si ves 500/504, revisa logs, timeouts y el cache (CDN + proxy).",
-    "Atajo rapido: Ctrl+S, Ctrl+Z y Alt+Tab; mantén foco, evita distracciones, y escribe con precision al 99%.",
-    "Config: { env: 'prod', retry: 3, backoffMs: 250, featureFlag: true } -> valida tipos, limites y errores.",
-    "Regex basica: ^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$  (ojo: casos borde, unicode y escapes).",
-    "HTTP: GET /api/items?page=2&limit=25 -> 200 OK; si falla, 401/403/404; mide con TTFB y evita N+1.",
-    "Math: (12.5 * 3) / 7 = 5.357...; usa , . : ; ! ? y simbolos como # @ $ % & * sin perder ritmo.",
-    "Build: npm run build && npm run test; si hay warning, corrige lint, ordena imports y reduce deuda tecnica.",
-    "Git: git checkout -b feat/x; commit -m 'fix'; push origin; abre PR, revisa CI, y mergea cuando este OK.",
+    "¿Te has fijado en las tildes? á, é, í, ó, ú; y también en la ñ y la ü. Practicarlas en frases largas ayuda a escribir español con naturalidad, sin sacrificar velocidad ni precisión aunque el texto sea extenso.",
+    "A medida que avanzas, concéntrate en la precisión: una tecla mal pulsada rompe el ritmo, pero una corrección rápida te devuelve el control; respira, mantén la postura y continúa hasta completar el párrafo.",
+    "Mientras llueve en la ciudad, el café humea y el teclado suena suave: escribe con calma, revisa tus errores más comunes y aprende a mantener un ritmo constante, incluso cuando el texto se alarga.",
+    "La aplicación se diseñó pensando en la usabilidad: contraste alto, lectura cómoda y respuestas rápidas; si te equivocas, no te detengas, vuelve al punto correcto y sigue escribiendo con paciencia y atención.",
+    "En el informe final añadiremos estadísticas y conclusiones: tiempo empleado, velocidad, precisión y errores; con esos datos podrás comparar partidas, detectar patrones y ajustar tu estrategia de aprendizaje.",
+    "Cuando el texto es largo, el reto real no es la dificultad, sino la constancia: mantener el ritmo durante minutos exige concentración, mirada al frente y dedos sueltos, sin tensión en muñecas ni hombros.",
+    "En clase repasamos conceptos de desarrollo: planificación, pruebas y revisión; del mismo modo, la mecanografía mejora con práctica diaria, pequeñas metas y una actitud tranquila ante cada corrección.",
+    "Si hoy estás cansado, baja el ritmo y prioriza la precisión: escribe despacio, con claridad, y verás que la velocidad aparece después. La práctica constante, día a día, es la clave del progreso.",
   ],
 };
 
@@ -196,7 +196,7 @@ function renderLeaderboard() {
 
   const headers =
     state.mode === "race"
-      ? ["#", "Tiempo", "Precisión", "Errores", "Fecha"]
+      ? ["#", "Tiempo", "WPM", "Precisión", "Errores", "Fecha"]
       : ["#", "WPM", "Precisión", "Errores", "Fecha"];
 
   elements.leaderboardHead.innerHTML = "";
@@ -219,6 +219,7 @@ function renderLeaderboard() {
         ? [
             String(i + 1),
             formatElapsedMs(entry.timeMs),
+            `${formatInteger(entry.wpm)}`,
             `${formatInteger(entry.accuracy)} %`,
             String(entry.errors),
             formatDateTime(entry.finishedAtEpochMs),
@@ -255,7 +256,10 @@ function renderHistory() {
     li.className = "historial-item";
 
     const modeLabel = entry.mode === "race" ? "Carrera" : `Contrarreloj ${entry.durationSec} s`;
-    const metric = entry.mode === "race" ? formatElapsedMs(entry.timeMs) : `${formatInteger(entry.wpm)} WPM`;
+    const metric =
+      entry.mode === "race"
+        ? `${formatElapsedMs(entry.timeMs)} · ${formatInteger(entry.wpm)} WPM`
+        : `${formatInteger(entry.wpm)} WPM`;
 
     const primary = document.createElement("div");
     primary.className = "historial-principal";
@@ -440,6 +444,11 @@ function buildResult(finalElapsedMs) {
 function finishRun(reason) {
   if (state.finished) return;
 
+  const elapsedMsNow = clampMin0(getElapsedMs());
+  const finalElapsedMs =
+    state.mode === "timed" ? clampMin0(state.durationSec) * 1000 : clampMin0(elapsedMsNow);
+  state.finalElapsedMs = finalElapsedMs;
+
   state.finished = true;
   state.running = false;
 
@@ -447,10 +456,6 @@ function finishRun(reason) {
     window.clearInterval(state.timerId);
     state.timerId = null;
   }
-
-  const finalElapsedMs =
-    state.mode === "timed" ? clampMin0(state.durationSec) * 1000 : clampMin0(getElapsedMs());
-  state.finalElapsedMs = finalElapsedMs;
 
   elements.entrada.disabled = true;
   updateHighlight(elements.entrada.value);

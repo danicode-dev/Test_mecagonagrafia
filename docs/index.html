@@ -1,185 +1,156 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
-    <title>Test de mecanografía</title>
-    <link rel="stylesheet" href="./style.css" />
-    <script src="./script.js" defer></script>
-  </head>
-  <body>
-    <main class="app" role="main">
-      <header class="encabezado">
-        <h1 class="titulo">Test de mecanografía</h1>
-        <p class="subtitulo">El temporizador empieza con la primera tecla.</p>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Test de mecanografía</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Knewave&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+  <script src="./script.js" defer></script>
+</head>
+
+<body>
+  <main class="app" role="main">
+    <header class="encabezado">
+      <h1 class="titulo">Test de mecanografía</h1>
+      <p class="subtitulo">El temporizador empieza con la primera tecla.</p>
+    </header>
+
+    <section class="tarjeta" aria-label="Área del test de mecanografía">
+      <div class="controles" aria-label="Controles del test">
+        <div class="control">
+          <label for="modo" class="control-etiqueta">Modo</label>
+          <select id="modo" class="control-select">
+            <option value="timed" selected>Contrarreloj</option>
+            <option value="race">Carrera</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="nivel" class="control-etiqueta">Nivel</label>
+          <select id="nivel" class="control-select">
+            <option value="L1" selected>L1</option>
+            <option value="L2">L2</option>
+            <option value="L3">L3</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="duracion" class="control-etiqueta">Duración del test</label>
+          <select id="duracion" class="control-select">
+            <option value="15">15 s</option>
+            <option value="30">30 s</option>
+            <option value="60" selected>60 s</option>
+          </select>
+        </div>
+
+        <div class="acciones" role="group" aria-label="Acciones">
+          <button id="nuevoTest" class="boton boton--primario" type="button" title="Nuevo test (Ctrl+N / Cmd+N)">
+            Nuevo test
+          </button>
+          <button id="togglePausa" class="boton" type="button" title="Pausar o reanudar (Espacio)" aria-pressed="false">
+            Pausar
+          </button>
+          <button id="exportar" class="boton" type="button" title="Exportar resultados a JSON">
+            Exportar
+          </button>
+          <button id="importar" class="boton" type="button" title="Importar resultados desde JSON">
+            Importar
+          </button>
+          <button id="limpiarDatos" class="boton boton--peligro" type="button" title="Borrar resultados guardados">
+            Borrar datos
+          </button>
+          <input id="importFile" class="file-input" type="file" accept="application/json" hidden />
+        </div>
+      </div>
+
+      <div id="textoObjetivo" class="texto" aria-label="Texto objetivo"></div>
+
+      <div id="raceProgress" class="progreso" hidden>
+        <div class="progreso-encabezado">
+          <span class="progreso-etiqueta">Progreso</span>
+          <span id="raceProgressValue" class="progreso-valor">0 %</span>
+        </div>
+        <div id="raceProgressBar" class="progreso-barra" role="progressbar" aria-label="Progreso de la carrera"
+          aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="raceProgressFill" class="progreso-relleno"></div>
+        </div>
+      </div>
+
+      <p id="instrucciones" class="instrucciones">
+        Atajos: Ctrl+N / Cmd+N nuevo test, Esc reiniciar, Espacio pausar/reanudar (con el campo de
+        texto activo). Pegar está desactivado. Los errores se cuentan aunque los corrijas.
+      </p>
+
+      <div class="entrada">
+        <input id="entradaUsuario" class="entrada-input" type="text" inputmode="text" autocomplete="off"
+          autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Entrada de texto para el test"
+          aria-describedby="instrucciones mensaje" placeholder="Empieza a escribir aquí…" />
+      </div>
+
+      <p id="mensaje" class="mensaje" aria-live="polite"></p>
+
+      <section class="estadisticas"
+        aria-label="Estadísticas: tiempo restante, velocidad, precisión y errores cometidos">
+        <div class="stat" aria-label="Tiempo restante">
+          <div class="stat-etiqueta">Tiempo restante</div>
+          <div id="statTiempo" class="stat-valor">60 s</div>
+        </div>
+        <div class="stat" aria-label="Tiempo empleado">
+          <div class="stat-etiqueta">Tiempo empleado</div>
+          <div id="statTiempoEmpleado" class="stat-valor">0.0 s</div>
+        </div>
+        <div class="stat" aria-label="Velocidad">
+          <div class="stat-etiqueta">Velocidad</div>
+          <div id="statWpm" class="stat-valor">0 WPM</div>
+        </div>
+        <div class="stat" aria-label="Precisión">
+          <div class="stat-etiqueta">Precisión</div>
+          <div id="statPrecision" class="stat-valor">0 %</div>
+        </div>
+        <div class="stat" aria-label="Errores cometidos">
+          <div class="stat-etiqueta">Errores cometidos</div>
+          <div id="statErrores" class="stat-valor">0</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" aria-label="Mejores puntuaciones">
+      <header class="panel-encabezado">
+        <h2 class="panel-titulo">Mejores puntuaciones</h2>
+        <p id="leaderboardContexto" class="panel-subtitulo"></p>
       </header>
 
-      <section class="tarjeta" aria-label="Área del test de mecanografía">
-        <div class="controles" aria-label="Controles del test">
-          <div class="control">
-            <label for="modo" class="control-etiqueta">Modo</label>
-            <select id="modo" class="control-select">
-              <option value="timed" selected>Contrarreloj</option>
-              <option value="race">Carrera</option>
-            </select>
-          </div>
+      <div class="tabla-contenedor" role="region" aria-label="Tabla de mejores puntuaciones">
+        <table class="tabla" aria-describedby="leaderboardContexto">
+          <thead>
+            <tr id="leaderboardHead"></tr>
+          </thead>
+          <tbody id="leaderboardBody"></tbody>
+        </table>
+      </div>
 
-          <div class="control">
-            <label for="nivel" class="control-etiqueta">Nivel</label>
-            <select id="nivel" class="control-select">
-              <option value="L1" selected>L1</option>
-              <option value="L2">L2</option>
-              <option value="L3">L3</option>
-            </select>
-          </div>
+      <p id="leaderboardVacio" class="panel-vacio" hidden>
+        Aún no hay resultados guardados para esta configuración.
+      </p>
+    </section>
 
-          <div class="control">
-            <label for="duracion" class="control-etiqueta">Duración del test</label>
-            <select id="duracion" class="control-select">
-              <option value="15">15 s</option>
-              <option value="30">30 s</option>
-              <option value="60" selected>60 s</option>
-            </select>
-          </div>
+    <section class="panel" aria-label="Historial reciente">
+      <header class="panel-encabezado">
+        <h2 class="panel-titulo">Historial reciente</h2>
+        <p class="panel-subtitulo">Últimas partidas guardadas en este navegador.</p>
+      </header>
 
-          <div class="acciones" role="group" aria-label="Acciones">
-            <button
-              id="nuevoTest"
-              class="boton boton--primario"
-              type="button"
-              title="Nuevo test (Ctrl+N / Cmd+N)"
-            >
-              Nuevo test
-            </button>
-            <button
-              id="togglePausa"
-              class="boton"
-              type="button"
-              title="Pausar o reanudar (Espacio)"
-              aria-pressed="false"
-            >
-              Pausar
-            </button>
-            <button id="exportar" class="boton" type="button" title="Exportar resultados a JSON">
-              Exportar
-            </button>
-            <button id="importar" class="boton" type="button" title="Importar resultados desde JSON">
-              Importar
-            </button>
-            <button
-              id="limpiarDatos"
-              class="boton boton--peligro"
-              type="button"
-              title="Borrar resultados guardados"
-            >
-              Borrar datos
-            </button>
-            <input id="importFile" class="file-input" type="file" accept="application/json" hidden />
-          </div>
-        </div>
+      <ul id="historialLista" class="historial"></ul>
+      <p id="historialVacio" class="panel-vacio" hidden>Aún no hay partidas guardadas.</p>
+    </section>
 
-        <div id="textoObjetivo" class="texto" aria-label="Texto objetivo"></div>
+    <noscript class="noscript">Necesitas activar JavaScript para usar este test.</noscript>
+  </main>
+</body>
 
-        <div id="raceProgress" class="progreso" hidden>
-          <div class="progreso-encabezado">
-            <span class="progreso-etiqueta">Progreso</span>
-            <span id="raceProgressValue" class="progreso-valor">0 %</span>
-          </div>
-          <div
-            id="raceProgressBar"
-            class="progreso-barra"
-            role="progressbar"
-            aria-label="Progreso de la carrera"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuenow="0"
-          >
-            <div id="raceProgressFill" class="progreso-relleno"></div>
-          </div>
-        </div>
-
-        <p id="instrucciones" class="instrucciones">
-          Atajos: Ctrl+N / Cmd+N nuevo test, Esc reiniciar, Espacio pausar/reanudar (con el campo de
-          texto activo). Pegar está desactivado. Los errores se cuentan aunque los corrijas.
-        </p>
-
-        <div class="entrada">
-          <input
-            id="entradaUsuario"
-            class="entrada-input"
-            type="text"
-            inputmode="text"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-            spellcheck="false"
-            aria-label="Entrada de texto para el test"
-            aria-describedby="instrucciones mensaje"
-            placeholder="Empieza a escribir aquí…"
-          />
-        </div>
-
-        <p id="mensaje" class="mensaje" aria-live="polite"></p>
-
-        <section
-          class="estadisticas"
-          aria-label="Estadísticas: tiempo restante, velocidad, precisión y errores cometidos"
-        >
-          <div class="stat" aria-label="Tiempo restante">
-            <div class="stat-etiqueta">Tiempo restante</div>
-            <div id="statTiempo" class="stat-valor">60 s</div>
-          </div>
-          <div class="stat" aria-label="Tiempo empleado">
-            <div class="stat-etiqueta">Tiempo empleado</div>
-            <div id="statTiempoEmpleado" class="stat-valor">0.0 s</div>
-          </div>
-          <div class="stat" aria-label="Velocidad">
-            <div class="stat-etiqueta">Velocidad</div>
-            <div id="statWpm" class="stat-valor">0 WPM</div>
-          </div>
-          <div class="stat" aria-label="Precisión">
-            <div class="stat-etiqueta">Precisión</div>
-            <div id="statPrecision" class="stat-valor">0 %</div>
-          </div>
-          <div class="stat" aria-label="Errores cometidos">
-            <div class="stat-etiqueta">Errores cometidos</div>
-            <div id="statErrores" class="stat-valor">0</div>
-          </div>
-        </section>
-      </section>
-
-      <section class="panel" aria-label="Mejores puntuaciones">
-        <header class="panel-encabezado">
-          <h2 class="panel-titulo">Mejores puntuaciones</h2>
-          <p id="leaderboardContexto" class="panel-subtitulo"></p>
-        </header>
-
-        <div class="tabla-contenedor" role="region" aria-label="Tabla de mejores puntuaciones">
-          <table class="tabla" aria-describedby="leaderboardContexto">
-            <thead>
-              <tr id="leaderboardHead"></tr>
-            </thead>
-            <tbody id="leaderboardBody"></tbody>
-          </table>
-        </div>
-
-        <p id="leaderboardVacio" class="panel-vacio" hidden>
-          Aún no hay resultados guardados para esta configuración.
-        </p>
-      </section>
-
-      <section class="panel" aria-label="Historial reciente">
-        <header class="panel-encabezado">
-          <h2 class="panel-titulo">Historial reciente</h2>
-          <p class="panel-subtitulo">Últimas partidas guardadas en este navegador.</p>
-        </header>
-
-        <ul id="historialLista" class="historial"></ul>
-        <p id="historialVacio" class="panel-vacio" hidden>Aún no hay partidas guardadas.</p>
-      </section>
-
-      <noscript class="noscript">Necesitas activar JavaScript para usar este test.</noscript>
-    </main>
-  </body>
 </html>

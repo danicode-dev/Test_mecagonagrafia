@@ -16,7 +16,7 @@
       </header>
 
       <section class="tarjeta" aria-label="Área del test de mecanografía">
-        <div class="controles">
+        <div class="controles" aria-label="Controles del test">
           <div class="control">
             <label for="modo" class="control-etiqueta">Modo</label>
             <select id="modo" class="control-select">
@@ -43,10 +43,66 @@
             </select>
           </div>
 
-          <button id="nuevoTest" class="boton" type="button">Nuevo test</button>
+          <div class="acciones" role="group" aria-label="Acciones">
+            <button
+              id="nuevoTest"
+              class="boton boton--primario"
+              type="button"
+              title="Nuevo test (Ctrl+N / Cmd+N)"
+            >
+              Nuevo test
+            </button>
+            <button
+              id="togglePausa"
+              class="boton"
+              type="button"
+              title="Pausar o reanudar (Espacio)"
+              aria-pressed="false"
+            >
+              Pausar
+            </button>
+            <button id="exportar" class="boton" type="button" title="Exportar resultados a JSON">
+              Exportar
+            </button>
+            <button id="importar" class="boton" type="button" title="Importar resultados desde JSON">
+              Importar
+            </button>
+            <button
+              id="limpiarDatos"
+              class="boton boton--peligro"
+              type="button"
+              title="Borrar resultados guardados"
+            >
+              Borrar datos
+            </button>
+            <input id="importFile" class="file-input" type="file" accept="application/json" hidden />
+          </div>
         </div>
 
         <div id="textoObjetivo" class="texto" aria-label="Texto objetivo"></div>
+
+        <div id="raceProgress" class="progreso" hidden>
+          <div class="progreso-encabezado">
+            <span class="progreso-etiqueta">Progreso</span>
+            <span id="raceProgressValue" class="progreso-valor">0 %</span>
+          </div>
+          <div
+            id="raceProgressBar"
+            class="progreso-barra"
+            role="progressbar"
+            aria-label="Progreso de la carrera"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="0"
+          >
+            <div id="raceProgressFill" class="progreso-relleno"></div>
+          </div>
+        </div>
+
+        <p id="instrucciones" class="instrucciones">
+          Atajos: Ctrl+N / Cmd+N nuevo test, Esc reiniciar, Espacio pausar/reanudar (con el campo de
+          texto activo). Pegar está desactivado.
+        </p>
 
         <div class="entrada">
           <input
@@ -59,6 +115,7 @@
             autocapitalize="off"
             spellcheck="false"
             aria-label="Entrada de texto para el test"
+            aria-describedby="instrucciones mensaje"
             placeholder="Empieza a escribir aquí…"
           />
         </div>

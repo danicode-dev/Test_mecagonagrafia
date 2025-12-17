@@ -224,6 +224,8 @@ class TypingTestApp {
       targetText: "",
       spans: [],
       prevInput: "",
+      totalKeystrokes: 0,
+      mistakes: 0,
       runStartPerfMs: null,
       elapsedMs: 0,
       rafId: null,
@@ -425,8 +427,11 @@ class TypingTestApp {
       this.ensureTimedTargetHasBuffer(this.elements.entrada.value.length);
     }
 
+    const nextInput = this.elements.entrada.value;
+    this.trackKeystrokes(this.state.prevInput, nextInput);
+
     this.keepCursorAtEnd();
-    this.updateHighlightIncremental(this.elements.entrada.value);
+    this.updateHighlightIncremental(nextInput);
     this.updateRaceProgress();
     this.requestScrollCurrentCharIntoView();
 
@@ -516,6 +521,8 @@ class TypingTestApp {
     this.state.elapsedMs = 0;
     this.state.lastStatsUpdatePerfMs = null;
     this.state.prevInput = "";
+    this.state.totalKeystrokes = 0;
+    this.state.mistakes = 0;
     this.state.raceEndHintShown = false;
     this.state.pendingScroll = false;
 
@@ -693,11 +700,14 @@ class TypingTestApp {
   updateStats(nowMs) {
     const input = this.elements.entrada?.value ?? "";
     const elapsedMs = this.getElapsedMs(nowMs);
-    const { totalTyped, correct, errors } = this.calculateCounts(input);
+    const { correct } = this.calculateCounts(input);
 
     const elapsedMinutes = elapsedMs / 60000;
     const wpm = elapsedMinutes > 0 ? (correct / 5) / elapsedMinutes : 0;
-    const accuracy = totalTyped > 0 ? (correct / totalTyped) * 100 : 0;
+    const totalKeystrokes = clampMin0(this.state.totalKeystrokes);
+    const mistakes = clampMin0(this.state.mistakes);
+    const accuracy =
+      totalKeystrokes > 0 ? (clampMin0(totalKeystrokes - mistakes) / totalKeystrokes) * 100 : 0;
 
     if (this.state.mode === "timed") {
       const totalMs = clampMin0(this.state.durationSec) * 1000;
@@ -709,7 +719,7 @@ class TypingTestApp {
     if (this.elements.statTiempoEmpleado) this.elements.statTiempoEmpleado.textContent = formatElapsedMs(elapsedMs);
     if (this.elements.statWpm) this.elements.statWpm.textContent = `${formatInteger(wpm)} WPM`;
     if (this.elements.statPrecision) this.elements.statPrecision.textContent = `${formatInteger(accuracy)} %`;
-    if (this.elements.statErrores) this.elements.statErrores.textContent = String(errors);
+    if (this.elements.statErrores) this.elements.statErrores.textContent = String(mistakes);
   }
 
   /** @param {string} input */
@@ -783,11 +793,14 @@ class TypingTestApp {
   /** @param {number} finalElapsedMs */
   buildResult(finalElapsedMs) {
     const input = this.elements.entrada?.value ?? "";
-    const { totalTyped, correct, errors } = this.calculateCounts(input);
+    const { correct } = this.calculateCounts(input);
 
     const elapsedMinutes = finalElapsedMs / 60000;
     const wpm = elapsedMinutes > 0 ? (correct / 5) / elapsedMinutes : 0;
-    const accuracy = totalTyped > 0 ? (correct / totalTyped) * 100 : 0;
+    const totalKeystrokes = clampMin0(this.state.totalKeystrokes);
+    const mistakes = clampMin0(this.state.mistakes);
+    const accuracy =
+      totalKeystrokes > 0 ? (clampMin0(totalKeystrokes - mistakes) / totalKeystrokes) * 100 : 0;
 
     return {
       mode: this.state.mode,
@@ -796,7 +809,7 @@ class TypingTestApp {
       timeMs: Math.round(finalElapsedMs),
       wpm,
       accuracy,
-      errors,
+      errors: mistakes,
       finishedAtEpochMs: Date.now(),
     };
   }
@@ -1051,6 +1064,38 @@ class TypingTestApp {
     }
 
     this.elements.texto.appendChild(fragment);
+  }
+
+  /**
+   * Tracks cumulative mistakes even if the user later deletes/corrects them.
+   * Counts inserted characters only (deletions do not reduce mistakes).
+   * @param {string} prevInput
+   * @param {string} nextInput
+   */
+  trackKeystrokes(prevInput, nextInput) {
+    const start = firstDiffIndex(prevInput, nextInput);
+    if (start === -1) return;
+
+    let prevEnd = prevInput.length - 1;
+    let nextEnd = nextInput.length - 1;
+    while (prevEnd >= start && nextEnd >= start && prevInput.charCodeAt(prevEnd) === nextInput.charCodeAt(nextEnd)) {
+      prevEnd--;
+      nextEnd--;
+    }
+
+    const insertedCount = nextEnd - start + 1;
+    if (insertedCount <= 0) return;
+
+    this.state.totalKeystrokes += insertedCount;
+
+    for (let offset = 0; offset < insertedCount; offset++) {
+      const index = start + offset;
+      const typedChar = nextInput[index];
+      const expectedChar = this.state.targetText[index];
+      if (expectedChar === undefined || typedChar !== expectedChar) {
+        this.state.mistakes += 1;
+      }
+    }
   }
 
   updateHighlightIncremental(nextInput) {
